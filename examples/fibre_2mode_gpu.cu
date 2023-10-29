@@ -43,7 +43,6 @@ int main()
                                0.0000000e+00, 2.5202004e+09, 2.5202004e+09, 0.0000000e+00,
                                0.0000000e+00, 2.5202004e+09, 2.5202004e+09, 0.0000000e+00,
                                2.5202004e+09, 0.0000000e+00, 0.0000000e+00, 3.7860385e+09});
-  std::cout << Sk << std::endl;
 
   double tmin = -40, tmax = 40;
   double n2 = 2.3e-20;
@@ -70,6 +69,13 @@ int main()
   // double z_start = 0, z_end = 1.0; //[m]
   // int nz = 2000*20;
   // int storage_stride = 100*20;
+
+  std::cout << "Problem parameters:\n"
+            << "  Time range            : [" << tmin << ", " << tmax << "] ps\n"
+            << "  Z max                 : " << z_end << " m\n"
+            << "  No. of z-steps        : " << nz << "\n"
+            << "  Solution storage freq.: Every " << storage_stride << " steps\n" 
+            << std::endl;
 
   const int order = 4;
   RungeKutta<Complex> solver(ode, order);
