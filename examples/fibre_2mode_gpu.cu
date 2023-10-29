@@ -1,3 +1,8 @@
+// nlse++
+// C++ library for solving the nonlinear Schrödinger equation
+// Licensed under the MIT License (http://opensource.org/licenses/MIT)
+// Copyright (c) 2023, Savithru Jayasinghe
+
 #include <autodiffeq/numerics/ADVar.hpp>
 #include <autodiffeq/numerics/Complex.hpp>
 #include <autodiffeq/solver/RungeKutta.hpp>
