@@ -1,0 +1,10 @@
+*~
+.cproject
+.project
+.settings
+.pydevproject
+.DS_Store
+build/
+
+externals/*.tgz
+externals/*.gz

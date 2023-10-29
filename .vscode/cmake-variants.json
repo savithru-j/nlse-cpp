@@ -1,0 +1,18 @@
+{
+    "buildTarget" : {
+        "default": "debug",
+        "description": "Build type option (Debug/Release)",
+        "choices": {
+            "debug": {
+                "short": "debug",
+                "long": "Debug build (code not optimized and with debug info)",
+                "buildType": "Debug"
+            },
+            "release": {
+                "short": "release",
+                "long": "Release build (code optimized without debug info) including final deliverables",
+                "buildType": "Release"
+            }
+        }
+    }
+}
