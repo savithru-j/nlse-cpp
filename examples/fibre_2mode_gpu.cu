@@ -16,10 +16,6 @@
 
 #include "ode/GPUMultimodeNLSE.hpp"
 
-#ifdef ENABLE_OPENMP
-#include <omp.h>
-#endif
-
 using namespace autodiffeq;
 
 int main()

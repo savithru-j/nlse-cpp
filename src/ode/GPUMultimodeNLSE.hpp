@@ -8,6 +8,7 @@
 #include <autodiffeq/solver/ODE.hpp>
 #include <autodiffeq/linearalgebra/GPUArray1D.cuh>
 #include <autodiffeq/linearalgebra/GPUArray2D.cuh>
+#include <autodiffeq/linearalgebra/GPUArray4D.cuh>
 #include <iostream>
 #include <iomanip>
 
@@ -20,8 +21,9 @@ namespace gpu
 
 template<typename T>
 __global__
-void mmnlseRHS(const int num_modes, const int num_time_pts, const DeviceArray2D<double>& beta_mat, 
-               const double dt, const DeviceArray1D<T>& sol, DeviceArray1D<T>& rhs)
+void AddDispersionRHS(const int num_modes, const int num_time_pts,
+                      const DeviceArray2D<double>& beta_mat, const double dt,
+                      const DeviceArray1D<T>& sol, DeviceArray1D<T>& rhs)
 {
   const int t = blockIdx.x*blockDim.x + threadIdx.x; //time-point index
   const int p = threadIdx.y; //mode index (blockIdx.y is always 0 since only 1 block is launched in this dimension)
@@ -92,15 +94,81 @@ void mmnlseRHS(const int num_modes, const int num_time_pts, const DeviceArray2D<
   }
 #endif
 
-  rhs[offset] = imag*(beta[            p] - beta[        0])*sol_i //(beta0p - beta00)
-                    -(beta[  num_modes+p] - beta[num_modes])*sol_tderiv1
-              - imag* beta[2*num_modes+p]*0.5               *sol_tderiv2
-                    + beta[3*num_modes+p]*inv6              *sol_tderiv3
-              + imag* beta[4*num_modes+p]*inv24             *sol_tderiv4;
+  T rhs_val = imag*(beta[            p] - beta[        0])*sol_i //(beta0p - beta00)
+                  -(beta[  num_modes+p] - beta[num_modes])*sol_tderiv1
+            - imag* beta[2*num_modes+p]*0.5               *sol_tderiv2
+                  + beta[3*num_modes+p]*inv6              *sol_tderiv3
+            + imag* beta[4*num_modes+p]*inv24             *sol_tderiv4;
+  rhs[offset] = rhs_val;
+}
+
+template<typename T>
+__global__
+void AddKerrRHS(const int num_modes, const int num_time_pts, const bool use_shared_mem_for_Sk,
+                const DeviceArray4D<T>& Sk_tensor, const DeviceArray1D<T>& sol, 
+                DeviceArray1D<T>& rhs)
+{
+  const int t = blockIdx.x*blockDim.x + threadIdx.x; //time-point index
+  const int p = threadIdx.y; //mode index (blockIdx.y is always 0 since only 1 block is launched in this dimension)
+  const int offset = num_modes*t + p;
+  int soldim = sol.size();
+  const int sol_shared_size = blockDim.x * num_modes;
+
+  extern __shared__ double array[];
+  T* sol_shared = array; // (num_threads * num_modes) variables of type T
+  if (t < num_time_pts && p < num_modes)
+    sol_shared[threadIdx.x*num_modes+p] = sol[offset];
+
+  double* Sk = nullptr;
+  if (use_shared_mem_for_Sk)
+  {
+    Sk = (double*) &sol_shared[sol_shared_size]; // (num_modes^4) doubles
+    const int num_modes_sq = num_modes * num_modes;
+    const int num_modes_cu = num_modes * num_modes * num_modes;
+    if (threadIdx.x < num_modes_cu && p < num_modes)
+    {
+      // threadIdx.x = N*(N*i + j) + k = N*N*i + N*j + k
+      const int i = threadIdx.x / num_modes_sq;
+      const int tmp = threadIdx.x - i*num_modes_sq;
+      const int j = tmp / num_modes;
+      const int k = tmp % num_modes;
+      Sk[threadIdx.x*num_modes+p] = Sk_tensor(i,j,k,p);
+    }
+  }
+
+  __syncthreads();
+
+  if (t >= num_time_pts || p >= num_modes)
+    return;
+
+  T kerr = 0.0;
+  if (use_shared_mem_for_Sk)
+  {
+    T* sol_modes = sol_shared + (threadIdx.x*num_modes);
+    const int num_modes_sq = num_modes * num_modes;
+    const int num_modes_cu = num_modes * num_modes * num_modes;
+
+    for (int q = 0; q < num_modes; ++q)
+    {
+      T Aq = sol_modes[q];
+      int Sk_offset = num_modes * num_modes * (num_modes*p + q); //linear index for Sk(p,q,r,s)
+      for (int r = 0; r < num_modes; ++r)
+      {
+        T Ar = sol_modes[r];
+        Sk_offset += (num_modes*r);
+        for (int s = 0; s < num_modes; ++s)
+        {
+          T As = sol_modes[s];
+          Sk_offset += s;
+          kerr += Sk[Sk_offset]*Aq*Ar*conj(As);
+        }
+      }
+    }
+  }
 }
 
 
-}
+} //gpu namespace
 
 template<typename T>
 class GPUMultimodeNLSE : public ODE<T>
@@ -151,20 +219,33 @@ public:
   void EvalRHS(const GPUArray1D<T>& sol, int step, double z, GPUArray1D<T>& rhs)
   {
     constexpr int threads_per_block = 256;
-    dim3 thread_dim(threads_per_block, num_modes_, 1);
-    dim3 block_dim((num_time_points_ + thread_dim.x-1) / thread_dim.x, 1, 1);
-    //std::cout << "thread_dim: " << thread_dim.x << ", " << thread_dim.y << ", " << thread_dim.z << std::endl;
+    dim3 block_dim(threads_per_block, num_modes_, 1);
+    dim3 grid_dim((num_time_points_ + block_dim.x-1) / block_dim.x, 1, 1);
     //std::cout << "block_dim: " << block_dim.x << ", " << block_dim.y << ", " << block_dim.z << std::endl;
+    //std::cout << "grid_dim: " << grid_dim.x << ", " << grid_dim.y << ", " << grid_dim.z << std::endl;
 
     constexpr int stencil_size = 5;
     int shared_mem_bytes = beta_mat_.size()*sizeof(double)
                          + (threads_per_block * stencil_size * num_modes_)*sizeof(T);
-    //std::cout << "shared mem bytes: " << shared_mem_bytes << std::endl;
+    // std::cout << "shared mem bytes1: " << shared_mem_bytes << std::endl;
 
-    gpu::mmnlseRHS<<<block_dim, thread_dim, shared_mem_bytes>>>(
-      num_modes_, num_time_points_, beta_mat_.GetDeviceArray(), dt_,
+    gpu::AddDispersionRHS<<<grid_dim, block_dim, shared_mem_bytes>>>(
+      num_modes_, num_time_points_, beta_mat_.GetDeviceArray(), dt_, 
       sol.GetDeviceArray(), rhs.GetDeviceArray());
     cudaCheckLastError();
+
+    if (is_nonlinear_)
+    {
+      shared_mem_bytes = (threads_per_block * num_modes_)*sizeof(T);
+      int num_bytes_Sk = num_modes_*num_modes_*num_modes_*num_modes_*sizeof(double);
+      bool use_shared_mem_for_Sk = false;
+      if (shared_mem_bytes + num_bytes_Sk <= 48000)
+      {
+        shared_mem_bytes += num_bytes_Sk;
+        use_shared_mem_for_Sk = true;
+      }
+      // std::cout << "shared mem bytes2: " << shared_mem_bytes << std::endl;
+    }
 
 #if 0
     static int iter = 0;
@@ -186,28 +267,28 @@ public:
 #endif
   }
 
-  void ComputeKerrNonlinearity(const int p, const Array1D<T>& sol)
-  {
-    #pragma omp for
-    for (int i = 0; i < num_time_points_; ++i) 
-    {
-      T sum = 0.0;
-      for (int q = 0; q < num_modes_; ++q)
-      {
-        const auto& Aq = sol(q*num_time_points_ + i);
-        for (int r = 0; r < num_modes_; ++r)
-        {
-          const auto& Ar = sol(r*num_time_points_ + i);
-          for (int s = 0; s < num_modes_; ++s)
-          {
-            const auto& As = sol(s*num_time_points_ + i);
-            sum += Sk_(p,q,r,s)*Aq*Ar*conj(As);
-          }
-        }
-      }
-      kerr_(i) = sum;
-    }
-  }
+  // void ComputeKerrNonlinearity(const int p, const Array1D<T>& sol)
+  // {
+  //   #pragma omp for
+  //   for (int i = 0; i < num_time_points_; ++i) 
+  //   {
+  //     T sum = 0.0;
+  //     for (int q = 0; q < num_modes_; ++q)
+  //     {
+  //       const auto& Aq = sol(q*num_time_points_ + i);
+  //       for (int r = 0; r < num_modes_; ++r)
+  //       {
+  //         const auto& Ar = sol(r*num_time_points_ + i);
+  //         for (int s = 0; s < num_modes_; ++s)
+  //         {
+  //           const auto& As = sol(s*num_time_points_ + i);
+  //           sum += Sk_(p,q,r,s)*Aq*Ar*conj(As);
+  //         }
+  //       }
+  //     }
+  //     kerr_(i) = sum;
+  //   }
+  // }
 
   Array1D<T> GetInitialSolutionGaussian(const Array1D<double>& Et, const Array1D<double>& t_FWHM, const Array1D<double>& t_center) 
   {
@@ -236,7 +317,7 @@ protected:
   GPUArray2D<double> beta_mat_;
   const double n2_; //[m^2 / W]
   const double omega0_; //[rad/ps]
-  const Array4D<double>& Sk_; //Kerr nonlinearity tensor
+  GPUArray4D<double> Sk_; //Kerr nonlinearity tensor
   static constexpr double c_ = 2.99792458e-4; //[m/ps]
   const bool is_self_steepening_ = false;
   const bool is_nonlinear_ = false;
