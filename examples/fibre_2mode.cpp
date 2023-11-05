@@ -61,7 +61,7 @@ int main()
   double n2 = 2.3e-20;
   double omega0 = 1.2153e3;
   bool is_self_steepening = false;
-  bool is_nonlinear = false;
+  bool is_nonlinear = true;
 
   MultimodeNLSE<Complex> ode(num_modes, num_time_points, tmin, tmax, beta_mat,
                              n2, omega0, Sk, is_self_steepening, is_nonlinear);
