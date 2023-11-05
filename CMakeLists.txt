@@ -18,7 +18,6 @@ FetchContent_Declare(autodiffeq
 FetchContent_MakeAvailable(autodiffeq)
 MESSAGE("Fetched autodiffeq.")
 
-# 
 find_package(OpenMP)
 if (AUTODIFFEQ_ENABLE_OPENMP AND OpenMP_CXX_FOUND)
   add_definitions(-DENABLE_OPENMP)
@@ -43,28 +42,30 @@ INCLUDE(CheckCXXSourceRuns)
 # Include the cmake variables with values for installation directories
 INCLUDE(GNUInstallDirs)
 
-#Enable testing for the project
-enable_testing()
+INCLUDE(cmake/CompileFlags.cmake)
 
-# Configure google-test an external library.
-ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/externals)
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/externals)
-INCLUDE_DIRECTORIES(${GTEST_INCLUDE_DIR})
-
-# list(APPEND CMAKE_PREFIX_PATH ${AUTODIFFEQ_INSTALL_DIR})
-# message("CMAKE_PREFIX_PATH:" ${CMAKE_PREFIX_PATH})
-
-# find_package(autodiffeq REQUIRED)
- 
 #Bring the headers into the project
 INCLUDE_DIRECTORIES(src)
-
-INCLUDE(cmake/CompileFlags.cmake)
-#INCLUDE( CMakeInclude/Dependencies.cmake )
 
 SET(LIBS 
     # libNumerics
    )
-  
+
 ADD_SUBDIRECTORY(examples)
+
+#Enable testing for the project
+enable_testing()
+
+# Configure google-test
+INCLUDE(FetchContent)
+FetchContent_Declare(
+googletest
+URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+#Add all unit tests
 #ADD_SUBDIRECTORY(test)
+

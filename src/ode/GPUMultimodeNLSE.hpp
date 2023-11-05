@@ -105,8 +105,8 @@ void AddDispersionRHS(const int num_modes, const int num_time_pts,
 template<typename T>
 __global__
 void AddKerrRHS(const int num_modes, const int num_time_pts, const bool use_shared_mem_for_Sk,
-                const DeviceArray4D<T>& Sk_tensor, const DeviceArray1D<T>& sol, 
-                DeviceArray1D<T>& rhs)
+                const DeviceArray4D<double>& Sk_tensor, const DeviceArray1D<T>& sol, 
+                complex<double> j_n_omega0_invc, DeviceArray1D<T>& rhs)
 {
   const int t = blockIdx.x*blockDim.x + threadIdx.x; //time-point index
   const int p = threadIdx.y; //mode index (blockIdx.y is always 0 since only 1 block is launched in this dimension)
@@ -115,7 +115,7 @@ void AddKerrRHS(const int num_modes, const int num_time_pts, const bool use_shar
   const int sol_shared_size = blockDim.x * num_modes;
 
   extern __shared__ double array[];
-  T* sol_shared = array; // (num_threads * num_modes) variables of type T
+  T* sol_shared = (T*) array; // (num_threads * num_modes) variables of type T
   if (t < num_time_pts && p < num_modes)
     sol_shared[threadIdx.x*num_modes+p] = sol[offset];
 
@@ -141,17 +141,15 @@ void AddKerrRHS(const int num_modes, const int num_time_pts, const bool use_shar
   if (t >= num_time_pts || p >= num_modes)
     return;
 
+  T* sol_modes = sol_shared + (threadIdx.x*num_modes);
   T kerr = 0.0;
   if (use_shared_mem_for_Sk)
   {
-    T* sol_modes = sol_shared + (threadIdx.x*num_modes);
     const int num_modes_sq = num_modes * num_modes;
-    const int num_modes_cu = num_modes * num_modes * num_modes;
-
     for (int q = 0; q < num_modes; ++q)
     {
       T Aq = sol_modes[q];
-      int Sk_offset = num_modes * num_modes * (num_modes*p + q); //linear index for Sk(p,q,r,s)
+      int Sk_offset = num_modes_sq * (num_modes*p + q); //linear index for Sk(p,q,r,s)
       for (int r = 0; r < num_modes; ++r)
       {
         T Ar = sol_modes[r];
@@ -165,6 +163,24 @@ void AddKerrRHS(const int num_modes, const int num_time_pts, const bool use_shar
       }
     }
   }
+  else
+  {
+    for (int q = 0; q < num_modes; ++q)
+    {
+      T Aq = sol_modes[q];
+      for (int r = 0; r < num_modes; ++r)
+      {
+        T Ar = sol_modes[r];
+        for (int s = 0; s < num_modes; ++s)
+        {
+          T As = sol_modes[s];
+          kerr += Sk_tensor(p,q,r,s)*Aq*Ar*conj(As);
+        }
+      }
+    }
+  }
+
+  rhs[offset] += j_n_omega0_invc*kerr;
 }
 
 
@@ -242,9 +258,15 @@ public:
       if (shared_mem_bytes + num_bytes_Sk <= 48000)
       {
         shared_mem_bytes += num_bytes_Sk;
-        use_shared_mem_for_Sk = true;
+        // use_shared_mem_for_Sk = true;
       }
       // std::cout << "shared mem bytes2: " << shared_mem_bytes << std::endl;
+
+      const complex<double> j_n_omega0_invc(0.0, n2_*omega0_/c_);
+      gpu::AddKerrRHS<<<grid_dim, block_dim, shared_mem_bytes>>>(
+        num_modes_, num_time_points_, use_shared_mem_for_Sk,
+        Sk_.GetDeviceArray(), sol.GetDeviceArray(), 
+        j_n_omega0_invc, rhs.GetDeviceArray());
     }
 
 #if 0
