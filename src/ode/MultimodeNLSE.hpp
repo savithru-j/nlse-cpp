@@ -75,7 +75,7 @@ public:
       const auto beta2p = beta_mat_(2,p);
       const auto beta3p = beta_mat_(3,p);
       const auto beta4p = beta_mat_(4,p);
-      ComputeTimeDerivativesOrder2(p, sol, sol_tderiv_);
+      ComputeTimeDerivativesOrder4(p, sol, sol_tderiv_);
 
       #pragma omp for
       for (int i = 0; i < num_time_points_; ++i) 
