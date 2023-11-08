@@ -67,5 +67,5 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 #Add all unit tests
-#ADD_SUBDIRECTORY(test)
+ADD_SUBDIRECTORY(test)
 
