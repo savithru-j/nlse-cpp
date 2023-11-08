@@ -39,14 +39,16 @@ foreach(testSrc ${TEST_SRCS})
 
 endforeach()
 
-#Add compile target
-add_executable(unit_build EXCLUDE_FROM_ALL ${TEST_SRCS})
+if (TEST_SRCS)
+  #Add compile target
+  add_executable(unit_build EXCLUDE_FROM_ALL ${TEST_SRCS})
 
-#link to libraries AND your targets and dependencies
-target_link_libraries(unit_build PRIVATE autodiffeq::autodiffeq gtest gtest_main)
+  #link to libraries AND your targets and dependencies
+  target_link_libraries(unit_build PRIVATE autodiffeq::autodiffeq gtest gtest_main)
 
-#Add a target for executing the test
-ADD_CUSTOM_TARGET( unit
-                   COMMAND $<TARGET_FILE:unit_build>
-                   DEPENDS unit_build
-                   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} )
+  #Add a target for executing the test
+  ADD_CUSTOM_TARGET( unit
+                    COMMAND $<TARGET_FILE:unit_build>
+                    DEPENDS unit_build
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} )
+endif()
