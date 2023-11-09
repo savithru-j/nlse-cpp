@@ -22,7 +22,7 @@ foreach(testSrc ${TEST_SRCS})
   add_executable(${testName}_build ${testSrc})
 
   #link to libraries and dependencies
-  target_link_libraries(${testName}_build PRIVATE autodiffeq::autodiffeq gtest gtest_main)
+  target_link_libraries(${testName}_build PRIVATE ${NLSECPP_LIBS} gtest gtest_main)
   
   #Make test_build depend on all unit tests        
   ADD_DEPENDENCIES( test_build ${testName}_build )
@@ -44,7 +44,7 @@ if (TEST_SRCS)
   add_executable(unit_build EXCLUDE_FROM_ALL ${TEST_SRCS})
 
   #link to libraries AND your targets and dependencies
-  target_link_libraries(unit_build PRIVATE autodiffeq::autodiffeq gtest gtest_main)
+  target_link_libraries(unit_build PRIVATE ${NLSECPP_LIBS} gtest gtest_main)
 
   #Add a target for executing the test
   ADD_CUSTOM_TARGET( unit

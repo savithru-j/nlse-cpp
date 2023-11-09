@@ -5,7 +5,6 @@
             "includePath": [
                 "${default}",
                 "${workspaceFolder}",
-                "${workspaceFolder}/externals/googletest/googletest/include",
                 "${workspaceFolder}/build/debug/_deps/autodiffeq-src"
             ],
             "defines": [

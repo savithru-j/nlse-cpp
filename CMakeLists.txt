@@ -47,10 +47,17 @@ INCLUDE(cmake/CompileFlags.cmake)
 #Bring the headers into the project
 INCLUDE_DIRECTORIES(src)
 
-SET(LIBS 
-    # libNumerics
+SET(NLSECPP_LIBS 
+    libODE
    )
 
+if (OpenMP_CXX_FOUND)
+  list (APPEND NLSECPP_LIBS OpenMP::OpenMP_CXX autodiffeq::autodiffeq)
+else()
+  list (APPEND NLSECPP_LIBS autodiffeq::autodiffeq)
+endif()
+
+ADD_SUBDIRECTORY(src)
 ADD_SUBDIRECTORY(examples)
 
 #Enable testing for the project

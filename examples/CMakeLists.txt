@@ -26,13 +26,7 @@ foreach(exampleSrc ${EXAMPLE_SRCS})
     endif()
   endif()
 
-  add_dependencies(${exampleName} autodiffeq)
-
   #link to libraries and dependencies
-  if (OpenMP_CXX_FOUND)
-    target_link_libraries(${exampleName} PRIVATE OpenMP::OpenMP_CXX autodiffeq::autodiffeq)
-  else()
-    target_link_libraries(${exampleName} PRIVATE autodiffeq::autodiffeq )
-  endif()
+  target_link_libraries(${exampleName} PRIVATE ${NLSECPP_LIBS} )
   
 endforeach()
