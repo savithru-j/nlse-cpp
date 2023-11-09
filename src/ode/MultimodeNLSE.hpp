@@ -3,14 +3,14 @@
 // Licensed under the MIT License (http://opensource.org/licenses/MIT)
 // Copyright (c) 2023, Savithru Jayasinghe
 
+#include <iostream>
+#include <iomanip>
 #include <autodiffeq/numerics/ADVar.hpp>
 #include <autodiffeq/numerics/Complex.hpp>
 #include <autodiffeq/solver/ODE.hpp>
 #include <autodiffeq/linearalgebra/Array1D.hpp>
 #include <autodiffeq/linearalgebra/Array2D.hpp>
 #include <autodiffeq/linearalgebra/Array4D.hpp>
-#include <iostream>
-#include <iomanip>
 
 namespace autodiffeq
 {
