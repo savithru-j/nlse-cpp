@@ -3,6 +3,15 @@
 // Licensed under the MIT License (http://opensource.org/licenses/MIT)
 // Copyright (c) 2023, Savithru Jayasinghe
 
+#include <iostream>
+#include <iomanip>
+#include <fstream>
+#include <chrono>
+
+#ifdef ENABLE_OPENMP
+#include <omp.h>
+#endif
+
 #include <autodiffeq/numerics/ADVar.hpp>
 #include <autodiffeq/numerics/Complex.hpp>
 #include <autodiffeq/solver/ForwardEuler.hpp>
@@ -10,23 +19,15 @@
 #include <autodiffeq/linearalgebra/Array2D.hpp>
 #include <autodiffeq/linearalgebra/Array3D.hpp>
 #include <autodiffeq/linearalgebra/Array4D.hpp>
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <chrono>
 
 #include "ode/MultimodeNLSE.hpp"
-
-#ifdef ENABLE_OPENMP
-#include <omp.h>
-#endif
+#include "ode/InitialCondition.hpp"
 
 using namespace autodiffeq;
 
 int main()
 {
   using Complex = complex<double>;
-  // using ComplexAD = ADVar<Complex>;
   using clock = std::chrono::high_resolution_clock;
 
 #ifdef ENABLE_OPENMP
@@ -37,7 +38,7 @@ int main()
   std::cout << "No. of CPU threads available: " << num_threads << std::endl;
 
   const int num_modes = 2;
-  const int num_time_points = 8193; //8192;
+  const int num_time_points = 8193;
 
   Array2D<double> beta_mat_5x8 = 
     {{ 0.00000000e+00, -5.31830434e+03, -5.31830434e+03, -1.06910098e+04, -1.06923559e+04, -1.07426928e+04, -2.16527479e+04, -3.26533894e+04},
@@ -69,10 +70,8 @@ int main()
   Array1D<double> Et = {9.0, 8.0}; //nJ (in range [6,30] nJ)
   Array1D<double> t_FWHM = {0.1, 0.2}; //ps (in range [0.05, 0.5] ps)
   Array1D<double> t_center = {0.0, 0.0}; //ps
-  Array1D<Complex> sol0 = ode.GetInitialSolutionGaussian(Et, t_FWHM, t_center);
-
-  // for (int i = 0; i < num_time_points; ++i)
-  //     std::cout << std::abs(sol0(i)) << ", " << std::abs(sol0(num_time_points + i)) << std::endl;
+  Array1D<Complex> sol0;
+  ComputeGaussianPulse(Et, t_FWHM, t_center, ode.GetTimeVector(), sol0);
 
   double z_start = 0, z_end = 7.5; //[m]
   int nz = 15000*20;
@@ -85,6 +84,7 @@ int main()
   std::cout << "Problem parameters:\n"
             << "  Time range            : [" << tmin << ", " << tmax << "] ps\n"
             << "  Z max                 : " << z_end << " m\n"
+            << "  No. of time points    : " << num_time_points << "\n"
             << "  No. of z-steps        : " << nz << "\n"
             << "  Solution storage freq.: " << "Every " << storage_stride << " steps\n" 
             << std::endl;
@@ -108,14 +108,13 @@ int main()
     std::cout << "Writing solution file: " << filename << std::endl;
     std::ofstream f(filename, std::ios_base::out | std::ios::binary);
     f << std::setprecision(6) << std::scientific;
-    const int offset = mode*num_time_points;
     for (int i = 0; i < sol_hist.GetNumSteps(); ++i)
     {
       if (i % storage_stride == 0)
       {
-      for (int j = 0; j < num_time_points-1; ++j)
-        f << abs(sol_hist(i, offset + j)) << ", ";
-      f << abs(sol_hist(i, offset + num_time_points-1)) << std::endl;
+        for (int j = 0; j < num_time_points-1; ++j)
+          f << abs(sol_hist(i, j*num_modes + mode)) << ", ";
+        f << abs(sol_hist(i, (num_time_points-1)*num_modes + mode)) << std::endl;
       }
     }
     f.close();

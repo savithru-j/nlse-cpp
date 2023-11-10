@@ -23,10 +23,10 @@ TEST( MultimodeNLSE_2mode, EvalRHS_CPU_GPU_Consistency )
      { 1.51681819e-04,  1.52043264e-04},
      {-4.95686317e-07, -4.97023237e-07}};
 
-  Array4D<double> Sk(2,2,2,2, {4.9840660e+09, 0.0000000e+00, 0.0000000e+00, 2.5202004e+09,
-                               0.0000000e+00, 2.5202004e+09, 2.5202004e+09, 0.0000000e+00,
-                               0.0000000e+00, 2.5202004e+09, 2.5202004e+09, 0.0000000e+00,
-                               2.5202004e+09, 0.0000000e+00, 0.0000000e+00, 3.7860385e+09});
+  Array4D<double> Sk(2,2,2,2, { 1.0,  2.0,  3.0,  4.0,
+                                5.0,  6.0,  7.0,  8.0,
+                               -2.0, -3.0, -4.0, -5.0,
+                                0.5,  0.7, -0.3,  0.1});
 
   double tmin = -20, tmax = 20;
   double n2 = 2.3e-20;
@@ -50,24 +50,20 @@ TEST( MultimodeNLSE_2mode, EvalRHS_CPU_GPU_Consistency )
   GPUMultimodeNLSE<Complex> ode_gpu(num_modes, num_time_points, tmin, tmax, beta_mat,
                                     n2, omega0, Sk, is_self_steepening, is_nonlinear);
 
-  //TODO: CPU and GPU have different data orderings, so need to copy elements to transformed indices
-  Array1D<Complex> sol_cpu_colmajor(sol_size);
-  for (int t = 0; t < num_time_points; ++t)
-    for (int p = 0; p < num_modes; ++p)
-      sol_cpu_colmajor(t*num_modes + p) = sol_cpu(p*num_time_points + t);
-
-  GPUArray1D<Complex> sol_gpu(sol_cpu_colmajor);
+  GPUArray1D<Complex> sol_gpu(sol_cpu);
   GPUArray1D<Complex> rhs_gpu(sol_size);
   ode_gpu.EvalRHS(sol_gpu, step, z, rhs_gpu);
   auto rhs_gpu_host = rhs_gpu.CopyToHost();
 
   //Check the consistency of CPU and GPU residuals
+  const double tol = 1e-13;
   for (int t = 0; t < num_time_points; ++t)
     for (int p = 0; p < num_modes; ++p)
     {
-      const auto& r_cpu = rhs_cpu(p*num_time_points + t);
+      const auto& r_cpu = rhs_cpu(t*num_modes + p);
       const auto& r_gpu = rhs_gpu_host(t*num_modes + p);
-      EXPECT_DOUBLE_EQ(r_cpu.real(), r_gpu.real());
-      EXPECT_DOUBLE_EQ(r_cpu.imag(), r_gpu.imag());
+      // std::cout << "t: " << t << ", p: " << p << ", val: " << r_cpu.real() << ", " << r_gpu.real() << std::endl;
+      EXPECT_NEAR(r_cpu.real(), r_gpu.real(), tol);
+      EXPECT_NEAR(r_cpu.imag(), r_gpu.imag(), tol);
     }
 }

@@ -34,35 +34,12 @@ public:
                 const bool is_self_steepening, const bool is_nonlinear = true);
   
   inline int GetSolutionSize() const { return num_modes_*num_time_points_; }
+  const Array1D<double>& GetTimeVector() const { return tvec_; }
 
   void EvalRHS(const Array1D<T>& sol, int step, double z, Array1D<T>& rhs) override;
 
-  void ComputeKerrNonlinearity(const int p, const Array1D<T>& sol);
-
   void ComputeTimeDerivativesOrder2(const int mode, const Array1D<T>& sol, Array2D<T>& tderiv);
-
   void ComputeTimeDerivativesOrder4(const int mode, const Array1D<T>& sol, Array2D<T>& tderiv);
-
-  Array1D<T> GetInitialSolutionGaussian(const Array1D<double>& Et, const Array1D<double>& t_FWHM, const Array1D<double>& t_center) 
-  {
-    assert(num_modes_ == (int) Et.size());
-    assert(num_modes_ == (int) t_FWHM.size());
-    assert(num_modes_ == (int) t_center.size());
-    Array1D<T> sol(GetSolutionSize());
-
-    for (int mode = 0; mode < num_modes_; ++mode)
-    {
-      const int offset = mode*num_time_points_;
-      const double A = std::sqrt(1665.0*Et(mode) / ((double)num_modes_ * t_FWHM(mode) * std::sqrt(M_PI)));
-      const double k = -1.665*1.665/(2.0*t_FWHM(mode)*t_FWHM(mode));
-      const double& tc = t_center(mode);
-
-      #pragma omp parallel for
-      for (int j = 0; j < num_time_points_; ++j)
-        sol(offset + j) = A * std::exp(k*(tvec_(j)-tc)*(tvec_(j)-tc));
-    }
-    return sol;
-  }
 
 protected:
   const int num_modes_;
@@ -77,8 +54,6 @@ protected:
   const bool is_self_steepening_ = false;
   const bool is_nonlinear_ = false;
   Array2D<T> sol_tderiv_;
-  Array1D<T> kerr_;
-  Array1D<T> kerr_tderiv_;
 };
 
 }

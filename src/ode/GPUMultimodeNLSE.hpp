@@ -78,8 +78,8 @@ void AddDispersionStencil5(const int num_modes, const int num_time_pts,
   //Calculate solution time-derivatives using stencil data
   T sol_tderiv1 = 0.5*(sol_ip1 - sol_im1) * inv_dt;
   T sol_tderiv2 = (sol_ip1 - 2.0*sol_i + sol_im1) * inv_dt2;
-  T sol_tderiv3 = (0.5*sol_ip2 - sol_ip1 + sol_im1 - 0.5*sol_im2) * inv_dt3;
-  T sol_tderiv4 = (sol_ip2 - 4.0*sol_ip1 + 6.0*sol_i - 4.0*sol_im1 + sol_im2) * inv_dt4;
+  T sol_tderiv3 = (0.5*(sol_ip2 - sol_im2) - sol_ip1 + sol_im1) * inv_dt3;
+  T sol_tderiv4 = (sol_ip2 - 4.0*(sol_ip1 + sol_im1) + 6.0*sol_i + sol_im2) * inv_dt4;
 
 #if 0
   if (t == 128 && p == 0) {
@@ -292,6 +292,7 @@ public:
   }
 
   int GetSolutionSize() const { return num_modes_*num_time_points_; }
+  const Array1D<double>& GetTimeVector() const { return tvec_; }
 
   void EvalRHS(const GPUArray1D<T>& sol, int step, double z, GPUArray1D<T>& rhs)
   {
@@ -363,25 +364,6 @@ public:
     }
     iter++;
 #endif
-  }
-
-  Array1D<T> GetInitialSolutionGaussian(const Array1D<double>& Et, const Array1D<double>& t_FWHM, const Array1D<double>& t_center) 
-  {
-    assert(num_modes_ == (int) Et.size());
-    assert(num_modes_ == (int) t_FWHM.size());
-    assert(num_modes_ == (int) t_center.size());
-    Array1D<T> sol(GetSolutionSize());
-
-    for (int mode = 0; mode < num_modes_; ++mode)
-    {
-      const double A = std::sqrt(1665.0*Et(mode) / ((double)num_modes_ * t_FWHM(mode) * std::sqrt(M_PI)));
-      const double k = -1.665*1.665/(2.0*t_FWHM(mode)*t_FWHM(mode));
-      const double& tc = t_center(mode);
-
-      for (int j = 0; j < num_time_points_; ++j)
-        sol(j*num_modes_ + mode) = A * std::exp(k*(tvec_(j)-tc)*(tvec_(j)-tc));
-    }
-    return sol;
   }
 
 protected:

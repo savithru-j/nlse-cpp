@@ -21,6 +21,16 @@ foreach(testSrc ${TEST_SRCS})
   #Add compile target
   add_executable(${testName}_build ${testSrc})
 
+  if (AUTODIFFEQ_ENABLE_CUDA)
+    # if (exampleExt STREQUAL ".cu")
+    #   target_compile_options(${testName}_build PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--ptxas-options=-v>)
+    # endif()
+
+    if (OpenMP_CXX_FOUND)
+      target_compile_options(${testName}_build PRIVATE $<$<COMPILE_LANGUAGE:CUDA>: -Xcompiler=-fopenmp>)
+    endif()
+  endif()
+
   #link to libraries and dependencies
   target_link_libraries(${testName}_build PRIVATE ${NLSECPP_LIBS} gtest gtest_main)
   

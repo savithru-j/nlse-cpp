@@ -24,6 +24,10 @@ foreach(exampleSrc ${EXAMPLE_SRCS})
     if (exampleExt STREQUAL ".cu")
       target_compile_options(${exampleName} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--ptxas-options=-v>)
     endif()
+
+    if (OpenMP_CXX_FOUND)
+      target_compile_options(${exampleName} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>: -Xcompiler=-fopenmp>)
+    endif()
   endif()
 
   #link to libraries and dependencies
