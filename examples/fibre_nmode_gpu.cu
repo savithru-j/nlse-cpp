@@ -112,6 +112,7 @@ int main()
   const int order = 4;
   RungeKutta<Complex> solver(ode, order);
   solver.SetSolveOnGPU(true);
+  solver.SetVerbosity(true);
 
   std::cout << "Solving ODE..." << std::endl;
   auto t0 = clock::now();
