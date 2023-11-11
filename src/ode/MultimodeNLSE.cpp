@@ -163,5 +163,5 @@ MultimodeNLSE<T>::ComputeTimeDerivativesOrder4(const int mode, const Array1D<T>&
 
 //Explicit instantiations
 template class MultimodeNLSE<complex<double>>;
-// template class MultimodeNLSE<ADVar<complex<double>>>;
+template class MultimodeNLSE<ADVar<complex<double>>>;
 }

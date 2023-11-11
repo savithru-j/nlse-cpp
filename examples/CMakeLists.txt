@@ -1,5 +1,12 @@
 INCLUDE( ${CMAKE_SOURCE_DIR}/cmake/ForceOutOfSource.cmake ) #This must be the first thing included
 
+add_custom_target(copy_example_data)
+ADD_CUSTOM_COMMAND(TARGET copy_example_data POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                   ${CMAKE_CURRENT_SOURCE_DIR}/data
+                   ${CMAKE_CURRENT_BINARY_DIR}/data
+                   COMMENT "Copying data files to '${CMAKE_CURRENT_BINARY_DIR}/data'")
+
 #Get all test files
 file(GLOB_RECURSE EXAMPLE_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp)
 
@@ -32,5 +39,6 @@ foreach(exampleSrc ${EXAMPLE_SRCS})
 
   #link to libraries and dependencies
   target_link_libraries(${exampleName} PRIVATE ${NLSECPP_LIBS} )
+  add_dependencies(${exampleName} copy_example_data)
   
 endforeach()

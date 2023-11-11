@@ -12,5 +12,4 @@ print(SK);
 print(SK.flatten())
 print(SR.flatten())
 
-
-
+np.savetxt('Sk_tensor_2modes.txt', SK.flatten(), fmt='%.12e', delimiter='\n')

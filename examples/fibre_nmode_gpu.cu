@@ -7,16 +7,11 @@
 #include <iomanip>
 #include <fstream>
 #include <chrono>
-
-#ifdef ENABLE_OPENMP
-#include <omp.h>
-#endif
-
 #include <autodiffeq/numerics/ADVar.hpp>
 #include <autodiffeq/numerics/Complex.hpp>
 #include <autodiffeq/solver/RungeKutta.hpp>
 
-#include "ode/MultimodeNLSE.hpp"
+#include "ode/GPUMultimodeNLSE.hpp"
 #include "ode/InitialCondition.hpp"
 
 using namespace autodiffeq;
@@ -26,33 +21,61 @@ int main()
   using Complex = complex<double>;
   using clock = std::chrono::high_resolution_clock;
 
-#ifdef ENABLE_OPENMP
-  int num_threads = omp_get_max_threads();
-#else
-  int num_threads = 1;
-#endif
-  std::cout << "No. of CPU threads available: " << num_threads << std::endl;
-
   const int num_modes = 2;
   const int num_time_points = 8193;
 
-  Array2D<double> beta_mat_5x8 = 
-    {{ 0.00000000e+00, -5.31830434e+03, -5.31830434e+03, -1.06910098e+04, -1.06923559e+04, -1.07426928e+04, -2.16527479e+04, -3.26533894e+04},
-     { 0.00000000e+00,  1.19405403e-01,  1.19405403e-01,  2.44294517e-01,  2.43231165e-01,  2.44450336e-01,  5.03940297e-01,  6.85399771e-01},
-     {-2.80794698e-02, -2.82196091e-02, -2.82196091e-02, -2.83665602e-02, -2.83665268e-02, -2.83659537e-02, -2.86356131e-02, -2.77985757e-02},
-     { 1.51681819e-04,  1.52043264e-04,  1.52043264e-04,  1.52419435e-04,  1.52419402e-04,  1.52414636e-04,  1.52667612e-04,  1.39629075e-04},
-     {-4.95686317e-07, -4.97023237e-07, -4.97023237e-07, -4.98371203e-07, -4.98371098e-07, -4.98311743e-07, -4.94029250e-07, -3.32523455e-07}};
-
+  //Read beta values from 5x30 matrix stored in file
   const int max_Ap_tderiv = 4;
   Array2D<double> beta_mat(max_Ap_tderiv+1, num_modes);
-  for (int i = 0; i <= max_Ap_tderiv; ++i)
-    for (int j = 0; j < num_modes; ++j)
-      beta_mat(i,j) = beta_mat_5x8(i,j);
+  {
+    std::ifstream f_beta("data/beta5x30.txt");
+    if (!f_beta.is_open()) {
+      std::cout << "Could not open beta data file!" << std::endl;
+      return 1;
+    }
+    Array1D<double> beta_values;
+    double tmp_val;
+    while (f_beta >> tmp_val)
+      beta_values.push_back(tmp_val);
+    f_beta.close();
+    Array2D<double> beta_mat_5x30(5, 30, beta_values.GetDataVector());
+    beta_values.clear();
 
-  Array4D<double> Sk(2,2,2,2, {4.9840660e+09, 0.0000000e+00, 0.0000000e+00, 2.5202004e+09,
-                               0.0000000e+00, 2.5202004e+09, 2.5202004e+09, 0.0000000e+00,
-                               0.0000000e+00, 2.5202004e+09, 2.5202004e+09, 0.0000000e+00,
-                               2.5202004e+09, 0.0000000e+00, 0.0000000e+00, 3.7860385e+09});
+    for (int i = 0; i <= max_Ap_tderiv; ++i)
+    {
+      double unit_conv_factor = std::pow(1000,(1.0-i));
+      for (int j = 0; j < num_modes; ++j)
+        beta_mat(i,j) = beta_mat_5x30(i,j) * unit_conv_factor;
+    }
+  }
+  std::cout << "Loaded beta data from file." << std::endl;
+  // std::cout << std::scientific << std::setprecision(8);
+  // std::cout << beta_mat << std::endl;
+
+  //Read Sk tensor values from 20x20x20x20 matrix stored in file
+  Array4D<double> Sk(num_modes, num_modes, num_modes, num_modes);
+  {
+    std::ifstream f_Sk("data/Sk_tensor_20modes.txt");
+    if (!f_Sk.is_open()) {
+      std::cout << "Could not open Sk tensor data file!" << std::endl;
+      return 1;
+    }
+    Array1D<double> Sk_values;
+    double tmp_val;
+    while (f_Sk >> tmp_val)
+      Sk_values.push_back(tmp_val);
+    f_Sk.close();
+    Array4D<double> Sk_20mode(20, 20, 20, 20, Sk_values.GetDataVector());
+    Sk_values.clear();
+
+    for (int i = 0; i < num_modes; ++i)
+      for (int j = 0; j < num_modes; ++j)
+        for (int k = 0; k < num_modes; ++k)
+          for (int l = 0; l < num_modes; ++l)
+            Sk(i,j,k,l) = Sk_20mode(i,j,k,l);
+  }
+  std::cout << "Loaded Sk tensor data from file." << std::endl;
+  // std::cout << Sk << std::endl;
 
   double tmin = -40, tmax = 40;
   double n2 = 2.3e-20;
@@ -60,12 +83,12 @@ int main()
   bool is_self_steepening = false;
   bool is_nonlinear = true;
 
-  MultimodeNLSE<Complex> ode(num_modes, num_time_points, tmin, tmax, beta_mat,
-                             n2, omega0, Sk, is_self_steepening, is_nonlinear);
+  GPUMultimodeNLSE<Complex> ode(num_modes, num_time_points, tmin, tmax, beta_mat,
+                                n2, omega0, Sk, is_self_steepening, is_nonlinear);
 
-  Array1D<double> Et = {9.0, 8.0}; //nJ (in range [6,30] nJ)
-  Array1D<double> t_FWHM = {0.1, 0.2}; //ps (in range [0.05, 0.5] ps)
-  Array1D<double> t_center = {0.0, 0.0}; //ps
+  Array1D<double> Et(num_modes, 10.0); //nJ (in range [6,30] nJ)
+  Array1D<double> t_FWHM(num_modes, 0.1); //ps (in range [0.05, 0.5] ps)
+  Array1D<double> t_center(num_modes, 0.0); //ps
   Array1D<Complex> sol0;
   ComputeGaussianPulse(Et, t_FWHM, t_center, ode.GetTimeVector(), sol0);
 
@@ -78,15 +101,17 @@ int main()
   // int storage_stride = 100*20;
 
   std::cout << "Problem parameters:\n"
+            << "  No. of modes          : " << num_modes << "\n"
             << "  Time range            : [" << tmin << ", " << tmax << "] ps\n"
             << "  Z max                 : " << z_end << " m\n"
             << "  No. of time points    : " << num_time_points << "\n"
             << "  No. of z-steps        : " << nz << "\n"
-            << "  Solution storage freq.: " << "Every " << storage_stride << " steps\n" 
+            << "  Solution storage freq.: Every " << storage_stride << " steps\n" 
             << std::endl;
 
   const int order = 4;
   RungeKutta<Complex> solver(ode, order);
+  solver.SetSolveOnGPU(true);
 
   std::cout << "Solving ODE..." << std::endl;
   auto t0 = clock::now();

@@ -23,8 +23,8 @@ zstep_cpp = 150;
 
 for mode in range(0,2):
   # cpp_data = np.genfromtxt('../build/release/intensity_mode' + str(mode) + '_rk4_tderivorder2_nz3e5_gpu.txt', delimiter=',');
-  # cpp_data = np.genfromtxt('../build/release/intensity_mode' + str(mode) + '.txt', delimiter=',');
-  cpp_data = np.genfromtxt('solutions/intensity_mode' + str(mode) + '_kerr_noSS_tderivorder4_nz3e5_nt8193_cpu.txt', delimiter=',');
+  cpp_data = np.genfromtxt('../build/release/examples/intensity_mode' + str(mode) + '.txt', delimiter=',');
+  # cpp_data = np.genfromtxt('solutions/intensity_mode' + str(mode) + '_kerr_noSS_tderivorder4_nz3e5_nt8193_cpu.txt', delimiter=',');
   print("cpp_data shape:", cpp_data.shape)
   Nt_cpp = cpp_data.shape[1];
   abs_u_cpp = np.transpose(cpp_data[zstep_cpp,:]);

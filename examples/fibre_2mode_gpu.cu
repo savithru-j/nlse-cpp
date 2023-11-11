@@ -10,8 +10,6 @@
 #include <autodiffeq/numerics/ADVar.hpp>
 #include <autodiffeq/numerics/Complex.hpp>
 #include <autodiffeq/solver/RungeKutta.hpp>
-#include <autodiffeq/linearalgebra/Array2D.hpp>
-#include <autodiffeq/linearalgebra/Array4D.hpp>
 
 #include "ode/GPUMultimodeNLSE.hpp"
 #include "ode/InitialCondition.hpp"
