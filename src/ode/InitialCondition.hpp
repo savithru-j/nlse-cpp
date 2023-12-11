@@ -11,8 +11,8 @@
 namespace autodiffeq
 {
 
-template<typename T, typename Ts>
-inline void ComputeGaussianPulse(const Array1D<T>& Et, const Array1D<T>& t_FWHM, const Array1D<T>& t_center,
+template<typename Te, typename Tf, typename Tc, typename Ts>
+inline void ComputeGaussianPulse(const Array1D<Te>& Et, const Array1D<Tf>& t_FWHM, const Array1D<Tc>& t_center,
                                  const Array1D<double>& time_vec, Array1D<Ts>& sol) 
 {
   const int num_modes = (int) Et.size();
@@ -23,13 +23,13 @@ inline void ComputeGaussianPulse(const Array1D<T>& Et, const Array1D<T>& t_FWHM,
 
   for (int mode = 0; mode < num_modes; ++mode)
   {
-    const double A = std::sqrt(1665.0*Et(mode) / ((double)num_modes * t_FWHM(mode) * std::sqrt(M_PI)));
-    const double k = -1.665*1.665/(2.0*t_FWHM(mode)*t_FWHM(mode));
-    const double& tc = t_center(mode);
+    const auto A = sqrt(1665.0*Et(mode) / ((double)num_modes * t_FWHM(mode) * std::sqrt(M_PI)));
+    const auto k = -1.665*1.665/(2.0*t_FWHM(mode)*t_FWHM(mode));
+    const Tc& tc = t_center(mode);
 
     #pragma omp parallel for
     for (int j = 0; j < num_time_points; ++j)
-      sol(j*num_modes + mode) = A * std::exp(k*(time_vec(j)-tc)*(time_vec(j)-tc));
+      sol(j*num_modes + mode) = A * exp(k*(time_vec(j)-tc)*(time_vec(j)-tc));
   }
 }
 

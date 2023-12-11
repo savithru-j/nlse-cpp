@@ -42,14 +42,20 @@ INCLUDE(CheckCXXSourceRuns)
 # Include the cmake variables with values for installation directories
 INCLUDE(GNUInstallDirs)
 
+INCLUDE(FindPkgConfig)
 INCLUDE(cmake/CompileFlags.cmake)
+INCLUDE(cmake/FindNLOPT.cmake)
 
 #Bring the headers into the project
 INCLUDE_DIRECTORIES(src)
 
-SET(NLSECPP_LIBS 
+SET(NLSECPP_LIBS
     libODE
    )
+
+if (NLOPT_FOUND)
+  list (APPEND NLSECPP_LIBS ${NLOPT_LIBRARIES})
+endif()
 
 if (OpenMP_CXX_FOUND)
   list (APPEND NLSECPP_LIBS OpenMP::OpenMP_CXX autodiffeq::autodiffeq)

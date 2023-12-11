@@ -3,6 +3,7 @@
 // Licensed under the MIT License (http://opensource.org/licenses/MIT)
 // Copyright (c) 2023, Savithru Jayasinghe
 
+#include <autodiffeq/numerics/ADVarS.hpp>
 #include "MultimodeNLSE.hpp"
 
 namespace autodiffeq
@@ -164,4 +165,7 @@ MultimodeNLSE<T>::ComputeTimeDerivativesOrder4(const int mode, const Array1D<T>&
 //Explicit instantiations
 template class MultimodeNLSE<complex<double>>;
 template class MultimodeNLSE<ADVar<complex<double>>>;
+template class MultimodeNLSE<ADVarS<1,complex<double>>>;
+template class MultimodeNLSE<ADVarS<2,complex<double>>>;
+template class MultimodeNLSE<ADVarS<4,complex<double>>>;
 }

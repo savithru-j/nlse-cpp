@@ -19,6 +19,17 @@ if (AUTODIFFEQ_ENABLE_CUDA)
   list (APPEND EXAMPLE_SRCS ${EXAMPLE_CUDA_SRCS})
 endif()
 
+#List of targets that require NLOPT
+set (OPT_SRCS
+     fibre_2mode_input_pulse_opt.cpp
+    )
+
+if (NOT NLOPT_FOUND)
+  foreach(exampleSrc ${OPT_SRCS})
+    list(REMOVE_ITEM EXAMPLE_SRCS ${exampleSrc})
+  endforeach()
+endif()
+
 foreach(exampleSrc ${EXAMPLE_SRCS})
   #Extract the filename without an extension (NAME_WE)
   get_filename_component(exampleName ${exampleSrc} NAME_WE)

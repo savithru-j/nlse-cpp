@@ -20,9 +20,10 @@ class MultimodeNLSE : public ODE<T>
 {
 public:
 
-  static_assert(std::is_same<T, complex<double>>::value ||
-                std::is_same<T, ADVar<complex<double>>>::value, 
-                "Template datatype needs to be complex<double> or ADVar<complex<double>>!");
+  // static_assert(std::is_same<T, complex<double>>::value ||
+  //               std::is_same<T, ADVar<complex<double>>>::value ||
+  //               std::is_same<T, ADVarS<1,complex<double>>>::value, 
+  //               "Template datatype needs to be complex<double> or ADVar<complex<double>>!");
   using ODE<T>::EvalRHS;
 
   MultimodeNLSE(const int num_modes, const int num_time_points, 
